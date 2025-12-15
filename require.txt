@@ -1,0 +1,3 @@
+https://adoptium.net/
+
+https://maven.apache.org/download.cgi
