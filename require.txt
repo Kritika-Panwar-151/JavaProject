@@ -1,3 +1,9 @@
 https://adoptium.net/
 
-https://maven.apache.org/download.cgi
+https://maven.apache.org/download.
+
+To run:
+
+cd attendance 
+./mvnw spring-boot:run
+http://localhost:8080/
