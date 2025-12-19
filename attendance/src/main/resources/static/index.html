@@ -1,13 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Attendance System</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            background: linear-gradient(135deg, #FAFAFA, #FCE4EC);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 420px;
+            background: #FFFFFF;
+            border-radius: 14px;
+            padding: 35px 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            border: 1px solid #E0E0E0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #212121;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #616161;
+        }
+
+        .role-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 14px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-teacher {
+            background-color: #C2185B;
+            color: #FFFFFF;
+        }
+
+        .btn-teacher:hover {
+            background-color: #AD1457;
+            transform: translateY(-1px);
+        }
+
+        .btn-student {
+            background-color: #FFFFFF;
+            color: #C2185B;
+            border: 2px solid #C2185B;
+        }
+
+        .btn-student:hover {
+            background-color: #FCE4EC;
+            transform: translateY(-1px);
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #9E9E9E;
+        }
+    </style>
 </head>
 <body>
-    <h2>Select Mode</h2>
 
-    <button onclick="location.href='teacher.html'">Teacher Mode</button>
-    <br><br>
-    <button onclick="location.href='student.html'">Student Mode</button>
+    <div class="container">
+        <div class="header">
+            <h1>Attendance Management</h1>
+            <p>Location-based student attendance system</p>
+        </div>
+
+        <div class="role-buttons">
+            <button class="btn btn-teacher"
+                    onclick="location.href='teacher.html'">
+                Teacher Mode
+            </button>
+
+            <button class="btn btn-student"
+                    onclick="location.href='student.html'">
+                Student Mode
+            </button>
+        </div>
+
+        <div class="footer">
+            © 2025 Academic Project
+        </div>
+    </div>
+
 </body>
 </html>

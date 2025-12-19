@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Student Attendance</title>
+
+<style>
+*{box-sizing:border-box;font-family:"Segoe UI",Arial}
+body{
+    height:100vh;margin:0;
+    background:linear-gradient(135deg,#FAFAFA,#FCE4EC);
+    display:flex;justify-content:center;align-items:center;
+}
+.card{
+    width:440px;background:#fff;padding:40px;border-radius:16px;
+    box-shadow:0 15px 40px rgba(0,0,0,.12);
+    display:flex;flex-direction:column;align-items:center;
+}
+h2{margin-bottom:6px}
+p{margin-bottom:26px;color:#616161;font-size:14px}
+.form{width:100%;max-width:360px}
+label{font-size:13px;margin-bottom:6px;display:block}
+input{
+    width:100%;padding:12px 14px;border-radius:10px;
+    border:1px solid #BDBDBD;margin-bottom:18px
+}
+button{
+    width:100%;padding:14px;border:none;border-radius:12px;
+    background:#C2185B;color:#fff;font-size:15px;cursor:pointer
+}
+.status{
+    margin-top:14px;text-align:center;font-size:14px;color:#D32F2F
+}
+.back{
+    margin-top:18px;
+    font-size:13px;
+    color:#C2185B;
+    text-decoration:none;
+}
+.back:hover{text-decoration:underline}
+</style>
+</head>
+
+<body>
+<div class="card">
+    <h2>Student Attendance</h2>
+    <p>Enter details to mark attendance</p>
+
+    <div class="form">
+        <label>USN</label>
+        <input id="usn">
+
+        <label>Class Code</label>
+        <input id="code">
+
+        <button onclick="markAttendance()">Mark Attendance</button>
+        <div class="status" id="status"></div>
+    </div>
+
+    <a class="back" href="index.html">← Back to mode selection</a>
+</div>
+
+<script>
+function getDeviceId(){
+    let id=localStorage.getItem("deviceId");
+    if(!id){id=crypto.randomUUID();localStorage.setItem("deviceId",id);}
+    return id;
+}
+
+function markAttendance(){
+    const usn=document.getElementById("usn").value.trim();
+    const code=document.getElementById("code").value.trim();
+
+    if(!usn||!code){showError("Please fill all fields");return;}
+
+    navigator.geolocation.getCurrentPosition(pos=>{
+        fetch("/api/student/mark-attendance",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                usn,
+                classCode:code,
+                latitude:pos.coords.latitude,
+                longitude:pos.coords.longitude,
+                deviceId:getDeviceId()
+            })
+        })
+        .then(r=>r.json())
+        .then(res=>handleResponse(res))
+        .catch(()=>showError("Server error"));
+    },()=>showError("Location permission denied"));
+}
+
+function handleResponse(res){
+    const map={
+        SESSION_NOT_STARTED:"Attendance window not active",
+        SESSION_ENDED:"Attendance window closed",
+        INVALID_CODE:"Invalid class code",
+        ALREADY_MARKED:"Attendance already marked",
+        DEVICE_MISMATCH:"This device is linked to another USN",
+        OUT_OF_RANGE:"You are not inside classroom"
+    };
+
+    if(res.status==="SUCCESS"){
+        document.getElementById("status").style.color="#2E7D32";
+        document.getElementById("status").innerText="Attendance marked successfully";
+        setTimeout(()=>window.location.href="index.html",1500);
+    }else{
+        showError(map[res.status]||"Unknown error");
+    }
+}
+
+function showError(msg){
+    const s=document.getElementById("status");
+    s.style.color="#D32F2F";
+    s.innerText=msg;
+}
+</script>
+</body>
+</html>
