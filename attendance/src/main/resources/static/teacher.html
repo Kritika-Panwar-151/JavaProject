@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Panel</title>
+
+<style>
+*{box-sizing:border-box;font-family:"Segoe UI",Arial}
+body{
+    height:100vh;margin:0;
+    background:linear-gradient(135deg,#FAFAFA,#FCE4EC);
+    display:flex;justify-content:center;align-items:center;
+}
+.card{
+    width:480px;background:#fff;padding:40px;border-radius:16px;
+    box-shadow:0 15px 40px rgba(0,0,0,.12);
+    display:flex;flex-direction:column;align-items:center;
+}
+h2{margin-bottom:18px}
+.form{width:100%;max-width:380px}
+label{font-size:13px;margin-bottom:6px;display:block}
+input{
+    width:100%;padding:12px 14px;border-radius:10px;
+    border:1px solid #BDBDBD;margin-bottom:16px
+}
+button{
+    width:100%;padding:14px;border:none;border-radius:12px;
+    background:#C2185B;color:#fff;font-size:15px;
+    cursor:pointer;margin-bottom:10px
+}
+.status{
+    margin-top:8px;text-align:center;font-size:14px;color:#D32F2F
+}
+.hidden{display:none}
+.code-box{font-size:18px;font-weight:600;text-align:center;margin-bottom:16px}
+.back{
+    margin-top:16px;
+    font-size:13px;
+    color:#C2185B;
+    text-decoration:none;
+}
+.back:hover{text-decoration:underline}
+</style>
+</head>
+
+<body>
+<div class="card">
+
+<!-- LOGIN -->
+<div id="login">
+    <h2>Teacher Login</h2>
+    <div class="form">
+        <label>Teacher ID</label>
+        <input id="tid">
+        <label>Password</label>
+        <input type="password" id="pwd">
+        <button onclick="login()">Login</button>
+        <div class="status" id="loginStatus"></div>
+    </div>
+    <a class="back" href="index.html">← Back to mode selection</a>
+</div>
+
+<!-- SETUP -->
+<div id="setup" class="hidden">
+    <h2>Create Session</h2>
+    <div class="form">
+        <label>Section</label>
+        <input id="section">
+        <label>Subject Code</label>
+        <input id="subject">
+        <button onclick="generate()">Generate Class Code</button>
+        <div class="status" id="setupStatus"></div>
+    </div>
+    <a class="back" href="index.html">← Back to mode selection</a>
+</div>
+
+<!-- SESSION -->
+<div id="session" class="hidden">
+    <h2>Session Control</h2>
+    <div class="code-box">Code: <span id="code"></span></div>
+    <div class="form">
+        <button onclick="copy()">Copy Code</button>
+        <button onclick="start()">Start Session</button>
+        <button onclick="end()">End Session</button>
+        <button onclick="view()">View Attendance</button>
+    </div>
+    <a class="back" href="index.html">← Back to mode selection</a>
+</div>
+
+</div>
+
+<script>
+function login(){
+    const tid=document.getElementById("tid").value.trim();
+    const pwd=document.getElementById("pwd").value.trim();
+    const s=document.getElementById("loginStatus");
+
+    if(!tid||!pwd){s.innerText="Please fill all fields";return;}
+
+    fetch("/api/teacher/login",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({teacherId:tid,password:pwd})
+    })
+    .then(r=>r.json())
+    .then(res=>{
+        if(res.status==="TEACHER_NOT_FOUND")s.innerText="Teacher ID does not exist";
+        else if(res.status==="INVALID_PASSWORD")s.innerText="Invalid password";
+        else{
+            document.getElementById("login").classList.add("hidden");
+            document.getElementById("setup").classList.remove("hidden");
+        }
+    })
+    .catch(()=>s.innerText="Server error");
+}
+
+function generate(){
+    const sec=document.getElementById("section").value.trim();
+    const sub=document.getElementById("subject").value.trim();
+    const s=document.getElementById("setupStatus");
+
+    if(!sec||!sub){s.innerText="Please fill all fields";return;}
+
+    fetch("/api/teacher/generate",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({section:sec,subjectCode:sub})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        document.getElementById("code").innerText=d.classCode;
+        document.getElementById("setup").classList.add("hidden");
+        document.getElementById("session").classList.remove("hidden");
+    });
+}
+
+function start(){fetch("/api/teacher/start-session",{method:"POST"});}
+function end(){if(confirm("Are you sure you want to end session?"))fetch("/api/teacher/end-session",{method:"POST"});}
+function view(){alert("Attendance list will be shown here");}
+function copy(){navigator.clipboard.writeText(document.getElementById("code").innerText);}
+</script>
+</body>
+</html>
