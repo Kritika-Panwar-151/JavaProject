@@ -16,7 +16,7 @@ body{
     box-shadow:0 15px 40px rgba(0,0,0,.12);
     display:flex;flex-direction:column;align-items:center;
 }
-h2{margin-bottom:18px}
+h2{margin-bottom:16px}
 .form{width:100%;max-width:380px}
 label{font-size:13px;margin-bottom:6px;display:block}
 input{
@@ -28,13 +28,16 @@ button{
     background:#C2185B;color:#fff;font-size:15px;
     cursor:pointer;margin-bottom:10px
 }
-.status{
-    margin-top:8px;text-align:center;font-size:14px;color:#D32F2F
-}
+.status{margin-top:8px;font-size:14px;color:#D32F2F;text-align:center}
 .hidden{display:none}
-.code-box{font-size:18px;font-weight:600;text-align:center;margin-bottom:16px}
+.code-box{
+    font-size:18px;
+    font-weight:600;
+    margin:10px 0;
+    color:#2E7D32;
+}
 .back{
-    margin-top:16px;
+    margin-top:18px;
     font-size:13px;
     color:#C2185B;
     text-decoration:none;
@@ -57,41 +60,44 @@ button{
         <button onclick="login()">Login</button>
         <div class="status" id="loginStatus"></div>
     </div>
-    <a class="back" href="index.html">← Back to mode selection</a>
+    <a class="back" href="index.html">← Back</a>
 </div>
 
-<!-- SETUP -->
-<div id="setup" class="hidden">
-    <h2>Create Session</h2>
+<!-- GENERATE SESSION -->
+<div id="generate" class="hidden">
+    <h2>Create Attendance Session</h2>
     <div class="form">
         <label>Section</label>
         <input id="section">
         <label>Subject Code</label>
         <input id="subject">
         <button onclick="generate()">Generate Class Code</button>
-        <div class="status" id="setupStatus"></div>
+        <div class="status" id="genStatus"></div>
     </div>
-    <a class="back" href="index.html">← Back to mode selection</a>
 </div>
 
-<!-- SESSION -->
+<!-- SESSION CONTROL -->
 <div id="session" class="hidden">
     <h2>Session Control</h2>
-    <div class="code-box">Code: <span id="code"></span></div>
+    <div class="code-box">Class Code: <span id="classCode"></span></div>
+
     <div class="form">
-        <button onclick="copy()">Copy Code</button>
         <button onclick="start()">Start Session</button>
+        <button onclick="pause()">Pause Session</button>
+        <button onclick="resume()">Resume Session</button>
         <button onclick="end()">End Session</button>
-        <button onclick="view()">View Attendance</button>
     </div>
-    <a class="back" href="index.html">← Back to mode selection</a>
+
+    <a class="back" href="index.html">← Back</a>
 </div>
 
 </div>
 
 <script>
+let currentClassCode="";
+
 function login(){
-    const tid=document.getElementById("tid").value.trim();
+    const tid=tidInput=document.getElementById("tid").value.trim();
     const pwd=document.getElementById("pwd").value.trim();
     const s=document.getElementById("loginStatus");
 
@@ -104,20 +110,21 @@ function login(){
     })
     .then(r=>r.json())
     .then(res=>{
-        if(res.status==="TEACHER_NOT_FOUND")s.innerText="Teacher ID does not exist";
-        else if(res.status==="INVALID_PASSWORD")s.innerText="Invalid password";
-        else{
+        if(res.status==="SUCCESS"){
             document.getElementById("login").classList.add("hidden");
-            document.getElementById("setup").classList.remove("hidden");
+            document.getElementById("generate").classList.remove("hidden");
+        }else if(res.status==="TEACHER_NOT_FOUND"){
+            s.innerText="Teacher ID does not exist";
+        }else{
+            s.innerText="Invalid password";
         }
-    })
-    .catch(()=>s.innerText="Server error");
+    });
 }
 
 function generate(){
     const sec=document.getElementById("section").value.trim();
     const sub=document.getElementById("subject").value.trim();
-    const s=document.getElementById("setupStatus");
+    const s=document.getElementById("genStatus");
 
     if(!sec||!sub){s.innerText="Please fill all fields";return;}
 
@@ -127,17 +134,28 @@ function generate(){
         body:JSON.stringify({section:sec,subjectCode:sub})
     })
     .then(r=>r.json())
-    .then(d=>{
-        document.getElementById("code").innerText=d.classCode;
-        document.getElementById("setup").classList.add("hidden");
+    .then(res=>{
+        currentClassCode=res.classCode;
+        document.getElementById("classCode").innerText=currentClassCode;
+        document.getElementById("generate").classList.add("hidden");
         document.getElementById("session").classList.remove("hidden");
     });
 }
 
-function start(){fetch("/api/teacher/start-session",{method:"POST"});}
-function end(){if(confirm("Are you sure you want to end session?"))fetch("/api/teacher/end-session",{method:"POST"});}
-function view(){alert("Attendance list will be shown here");}
-function copy(){navigator.clipboard.writeText(document.getElementById("code").innerText);}
+function start(){
+    fetch(`/api/teacher/start/${currentClassCode}`,{method:"POST"});
+}
+function pause(){
+    fetch(`/api/teacher/pause/${currentClassCode}`,{method:"POST"});
+}
+function resume(){
+    fetch(`/api/teacher/resume/${currentClassCode}`,{method:"POST"});
+}
+function end(){
+    if(confirm("End session permanently?")){
+        fetch(`/api/teacher/end/${currentClassCode}`,{method:"POST"});
+    }
+}
 </script>
 </body>
 </html>
