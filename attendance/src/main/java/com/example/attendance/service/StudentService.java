@@ -1,15 +1,3 @@
-package com.example.attendance.service;
-
-import com.example.attendance.dto.StudentAttendanceRequest;
-import com.example.attendance.util.DistanceUtil;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.List;
-import java.util.Map;
-
 @Service
 public class StudentService {
 
@@ -49,7 +37,11 @@ public class StudentService {
         if (!"ACTIVE".equals(session.get("status")))
             return "SESSION_NOT_ACTIVE";
 
-        // 3️⃣ Distance check
+        // 3️⃣ Check if teacher location is set
+        if (session.get("latitude") == null || session.get("longitude") == null)
+            return "SESSION_LOCATION_NOT_SET";
+
+        // 4️⃣ Distance check
         double distance = DistanceUtil.distanceMeters(
                 (double) session.get("latitude"),
                 (double) session.get("longitude"),
@@ -60,7 +52,7 @@ public class StudentService {
         if (distance > 50)
             return "OUT_OF_RANGE";
 
-        // 4️⃣ Prevent duplicate attendance
+        // 5️⃣ Prevent duplicate attendance (same USN)
         String a = url + "/rest/v1/attendance_records"
                 + "?session_id=eq." + session.get("id")
                 + "&usn=eq." + req.getUsn();
@@ -73,7 +65,20 @@ public class StudentService {
         if (!existing.isEmpty())
             return "ALREADY_MARKED";
 
-        // 5️⃣ Save attendance
+        // 6️⃣ Prevent same device used for another USN
+        String d = url + "/rest/v1/attendance_records"
+                + "?session_id=eq." + session.get("id")
+                + "&device_id=eq." + req.getDeviceId();
+
+        List deviceRecords = rt.exchange(
+                d, HttpMethod.GET,
+                new HttpEntity<>(headers()), List.class
+        ).getBody();
+
+        if (!deviceRecords.isEmpty())
+            return "DEVICE_MISMATCH";
+
+        // 7️⃣ Save attendance
         Map<String, Object> record = Map.of(
                 "session_id", session.get("id"),
                 "usn", req.getUsn(),

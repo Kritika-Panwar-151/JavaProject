@@ -43,9 +43,12 @@ public class TeacherService {
 
         Map teacher = (Map) res.getBody().get(0);
 
+
+
         return req.getPassword().equals(teacher.get("password_hash"))
                 ? "SUCCESS"
                 : "INVALID_PASSWORD";
+        
     }
 
     // ---------- GENERATE SESSION ----------
