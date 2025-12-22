@@ -24,34 +24,29 @@ public class TeacherService {
         HttpHeaders h = new HttpHeaders();
         h.set("apikey", key);
         h.set("Authorization", "Bearer " + key);
+        h.set("Prefer", "return=minimal");
         h.setContentType(MediaType.APPLICATION_JSON);
         return h;
     }
 
-    // ---------- LOGIN ----------
     public String login(TeacherLoginRequest req) {
 
-        RestTemplate rt = new RestTemplate();
         String q = url + "/rest/v1/teachers?teacher_id=eq." + req.getTeacherId();
 
-        ResponseEntity<List> res =
-                rt.exchange(q, HttpMethod.GET,
-                        new HttpEntity<>(headers()), List.class);
+        List res = new RestTemplate().exchange(
+                q, HttpMethod.GET,
+                new HttpEntity<>(headers()), List.class).getBody();
 
-        if (res.getBody().isEmpty())
+        if (res == null || res.isEmpty())
             return "TEACHER_NOT_FOUND";
 
-        Map teacher = (Map) res.getBody().get(0);
-
-
+        Map teacher = (Map) res.get(0);
 
         return req.getPassword().equals(teacher.get("password_hash"))
                 ? "SUCCESS"
                 : "INVALID_PASSWORD";
-        
     }
 
-    // ---------- GENERATE SESSION ----------
     public String generateSession(GenerateSessionRequest req) {
 
         String code = UUID.randomUUID()
@@ -75,7 +70,6 @@ public class TeacherService {
         return code;
     }
 
-    // ---------- UPDATE SESSION STATUS ----------
     public void updateStatus(String code, String status) {
 
         Map<String, Object> body = Map.of("status", status);
