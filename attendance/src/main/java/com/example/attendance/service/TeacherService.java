@@ -81,4 +81,30 @@ public class TeacherService {
                 String.class
         );
     }
+    public List<Map<String, Object>> getAttendanceForClass(String classCode) {
+
+        RestTemplate rt = new RestTemplate();
+
+        // 1. Get session by class code
+        String sUrl = url + "/rest/v1/attendance_sessions?class_code=eq." + classCode;
+        List sessions = rt.exchange(
+                sUrl, HttpMethod.GET,
+                new HttpEntity<>(headers()), List.class
+        ).getBody();
+
+        if (sessions == null || sessions.isEmpty())
+            return List.of();
+
+        Map session = (Map) sessions.get(0);
+
+        // 2. Get attendance records for that session
+        String aUrl = url + "/rest/v1/attendance_records"
+                + "?session_id=eq." + session.get("id");
+
+        return rt.exchange(
+                aUrl, HttpMethod.GET,
+                new HttpEntity<>(headers()), List.class
+        ).getBody();
+}
+
 }

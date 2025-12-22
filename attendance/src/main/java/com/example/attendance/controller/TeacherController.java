@@ -59,4 +59,11 @@ public class TeacherController {
         teacherService.updateStatus(code, "ENDED");
         return ResponseEntity.ok(new ApiResponse("SESSION_ENDED"));
     }
+    @GetMapping("/attendance/{classCode}")
+    public ResponseEntity<?> getAttendance(@PathVariable String classCode) {
+        return ResponseEntity.ok(
+                teacherService.getAttendanceForClass(classCode)
+        );
+}
+
 }
