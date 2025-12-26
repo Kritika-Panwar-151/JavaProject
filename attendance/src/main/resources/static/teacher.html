@@ -75,35 +75,11 @@ button{
 .timer{
     font-size:16px;
     font-weight:600;
+    margin-bottom:8px;
+}
+#sessionStatus{
     margin-bottom:14px;
-}
-
-.modal{
-    position:fixed;inset:0;
-    background:rgba(0,0,0,.4);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:1000;
-}
-.modal.hidden{display:none}
-.modal-content{
-    background:#fff;
-    width:90%;
-    max-width:var(--main-width);
-    padding:25px;
-    border-radius:14px;
-    text-align:center;
-}
-.attendance-list{
-    max-height:260px;
-    overflow-y:auto;
-    margin:15px 0;
-    text-align:left;
-}
-.attendance-item{
-    padding:8px 0;
-    border-bottom:1px solid #E0E0E0;
+    font-weight:600;
 }
 </style>
 </head>
@@ -133,7 +109,6 @@ button{
         <label>Subject Code</label>
         <input id="subject">
         <button class="btn-wide" onclick="generateSession()">Generate Class Code</button>
-        <div id="genStatus"></div>
     </div>
 </div>
 
@@ -152,27 +127,13 @@ button{
         Session Time: <span id="timer">00:00</span>
     </div>
 
-    <div id="activeControls" class="actions">
-        <button class="btn-wide" onclick="startSession()">Start Session</button>
+    <div id="sessionStatus"></div>
+
+    <div class="actions">
+        <button id="startBtn" class="btn-wide" onclick="startSession()">Start Session</button>
         <button class="btn-wide" onclick="pauseSession()">Pause Session</button>
         <button class="btn-wide" onclick="resumeSession()">Resume Session</button>
         <button class="btn-wide" onclick="endSession()">End Session</button>
-    </div>
-
-    <div id="endedControls" class="actions hidden">
-        <button class="btn-wide" onclick="viewAttendance()">View Attendance</button>
-        <button class="btn-wide" onclick="exitToHome()">Exit to Home</button>
-    </div>
-</div>
-
-</div>
-
-<!-- MODAL -->
-<div id="attendanceModal" class="modal hidden">
-    <div class="modal-content">
-        <h3>Attendance List</h3>
-        <div id="attendanceList" class="attendance-list"></div>
-        <button class="btn-wide" onclick="closeModal()">Close</button>
     </div>
 </div>
 
@@ -181,14 +142,12 @@ button{
 const loginDiv = document.getElementById("loginDiv");
 const generateDiv = document.getElementById("generateDiv");
 const sessionDiv = document.getElementById("sessionDiv");
-const activeControls = document.getElementById("activeControls");
-const endedControls = document.getElementById("endedControls");
-const attendanceModal = document.getElementById("attendanceModal");
+const sessionStatus = document.getElementById("sessionStatus");
+const startBtn = document.getElementById("startBtn");
 
-/* STATE */
-let currentClassCode="";
-let seconds=0;
-let timerInterval=null;
+let currentClassCode = "";
+let seconds = 0;
+let timerInterval = null;
 
 /* LOGIN */
 function doLogin(){
@@ -196,117 +155,117 @@ function doLogin(){
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-            teacherId:tid.value,
-            password:pwd.value
+            teacherId: tid.value,
+            password: pwd.value
         })
     })
-    .then(r=>r.json())
-    .then(res=>{
-        if(res.status==="SUCCESS"){
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === "SUCCESS"){
             loginDiv.classList.add("hidden");
             generateDiv.classList.remove("hidden");
-        }else{
-            loginStatus.innerText =
-                res.status==="TEACHER_NOT_FOUND"
-                ? "Teacher ID does not exist"
-                : "Invalid password";
+        } else {
+            loginStatus.innerText = "Invalid credentials";
         }
-    })
-    .catch(()=>alert("Server error"));
+    });
 }
 
 /* GENERATE */
 function generateSession(){
-    if(!section.value || !subject.value){
-        genStatus.innerText="Fill all fields";
-        return;
-    }
     fetch("/api/teacher/generate",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-            section:section.value,
-            subjectCode:subject.value
+            section: section.value,
+            subjectCode: subject.value
         })
     })
-    .then(r=>r.json())
-    .then(res=>{
-        currentClassCode=res.classCode;
-        classCode.innerText=res.classCode;
+    .then(r => r.json())
+    .then(res => {
+        currentClassCode = res.classCode;
+        classCode.innerText = res.classCode;
         generateDiv.classList.add("hidden");
         sessionDiv.classList.remove("hidden");
-    })
-    .catch(()=>alert("Error generating class code"));
+    });
 }
 
 /* TIMER */
 function tick(){
     seconds++;
     timer.innerText =
-        String(Math.floor(seconds/60)).padStart(2,"0")+":"+
+        String(Math.floor(seconds/60)).padStart(2,"0") + ":" +
         String(seconds%60).padStart(2,"0");
 }
 function startClock(){
     if(timerInterval) return;
-    timerInterval=setInterval(tick,1000);
+    timerInterval = setInterval(tick,1000);
 }
 function pauseClock(){
     clearInterval(timerInterval);
-    timerInterval=null;
+    timerInterval = null;
 }
 function resetClock(){
     pauseClock();
-    seconds=0;
-    timer.innerText="00:00";
+    seconds = 0;
+    timer.innerText = "00:00";
 }
 
 /* SESSION */
 function startSession(){
-    fetch(`/api/teacher/start/${currentClassCode}`,{method:"POST"});
-    startClock();
-}
-function pauseSession(){
-    fetch(`/api/teacher/pause/${currentClassCode}`,{method:"POST"});
-    pauseClock();
-}
-function resumeSession(){
-    fetch(`/api/teacher/resume/${currentClassCode}`,{method:"POST"});
-    startClock();
-}
-function endSession(){
-    fetch(`/api/teacher/end/${currentClassCode}`,{method:"POST"})
-    .then(()=>{
-        resetClock();
-        activeControls.classList.add("hidden");
-        endedControls.classList.remove("hidden");
+    navigator.geolocation.getCurrentPosition(pos => {
+
+        fetch(`/api/teacher/start/${currentClassCode}`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude
+            })
+        })
+        .then(() => {
+            sessionStatus.innerText = "Session Active";
+            sessionStatus.style.color = "#2E7D32";
+            startBtn.disabled = true;
+            resetClock();
+            startClock();
+        });
+
+    }, () => {
+        alert("Location permission required");
     });
 }
 
-/* ATTENDANCE */
-function viewAttendance(){
-    fetch(`/api/teacher/attendance/${currentClassCode}`)
-    .then(r=>r.json())
-    .then(data=>{
-        attendanceList.innerHTML="";
-        if(data.length===0){
-            attendanceList.innerHTML="<p>No attendance records.</p>";
-        }else{
-            data.forEach(x=>{
-                const div=document.createElement("div");
-                div.className="attendance-item";
-                div.innerText =
-                    `${x.usn} | ${new Date(x.marked_at).toLocaleString()}`;
-                attendanceList.appendChild(div);
-            });
-        }
-        attendanceModal.classList.remove("hidden");
+function pauseSession(){
+    fetch(`/api/teacher/pause/${currentClassCode}`,{method:"POST"});
+    pauseClock();
+    sessionStatus.innerText="Session Paused";
+    sessionStatus.style.color="#F57C00";
+}
+
+function resumeSession(){
+    fetch(`/api/teacher/resume/${currentClassCode}`,{method:"POST"});
+    startClock();
+    sessionStatus.innerText="Session Active";
+    sessionStatus.style.color="#2E7D32";
+}
+
+function endSession(){
+    fetch(`/api/teacher/end/${currentClassCode}`,{method:"POST"})
+    .then(() => {
+        window.location.href =
+            `/api/teacher/attendance/download/${currentClassCode}`;
+        resetClock();
+        sessionStatus.innerText="Session Ended";
+        sessionStatus.style.color="#D32F2F";
     });
 }
 
 /* EXTRA */
-function copyCode(){ navigator.clipboard.writeText(currentClassCode); }
-function closeModal(){ attendanceModal.classList.add("hidden"); }
-function exitToHome(){ location.href="index.html"; }
+function copyCode(){
+    navigator.clipboard.writeText(currentClassCode);
+}
 </script>
+
+</div>
 </body>
 </html>

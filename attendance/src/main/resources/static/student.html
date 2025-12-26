@@ -34,7 +34,7 @@ button{
 .back{
     margin-top:18px;
     font-size:13px;
-    color:#C2185B;
+    color:#050431;
     text-decoration:none;
 }
 .back:hover{text-decoration:underline}
@@ -96,6 +96,9 @@ function handleResponse(res){
         SESSION_NOT_STARTED:"Attendance window not active",
         SESSION_ENDED:"Attendance window closed",
         INVALID_CODE:"Invalid class code",
+        SESSION_LOCATION_NOT_SET: "Teacher has not set classroom location yet",
+        SESSION_NOT_ACTIVE: "Attendance window not active",
+        SERVER_ERROR: "Server error. Please try again.",
         ALREADY_MARKED:"Attendance already marked",
         DEVICE_MISMATCH:"This device is linked to another USN",
         OUT_OF_RANGE:"You are not inside classroom"

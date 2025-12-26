@@ -7,11 +7,14 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class StudentService {
+
+    private final RestTemplate rt = new RestTemplate();
 
     @Value("${SUPABASE_URL}")
     private String url;
@@ -23,76 +26,56 @@ public class StudentService {
         HttpHeaders h = new HttpHeaders();
         h.set("apikey", key);
         h.set("Authorization", "Bearer " + key);
-        h.set("Prefer", "return=minimal");
         h.setContentType(MediaType.APPLICATION_JSON);
         return h;
     }
 
     public String markAttendance(StudentAttendanceRequest req) {
+        try {
+            String q = url + "/rest/v1/attendance_sessions?class_code=eq." + req.getClassCode();
 
-        RestTemplate rt = new RestTemplate();
+            List<Map<String, Object>> sessions = rt.exchange(
+                    q, HttpMethod.GET,
+                    new HttpEntity<>(headers()),
+                    List.class
+            ).getBody();
 
-        // 1. Fetch session
-        String q = url + "/rest/v1/attendance_sessions?class_code=eq." + req.getClassCode();
-        List sessions = rt.exchange(q, HttpMethod.GET,
-                new HttpEntity<>(headers()), List.class).getBody();
+            if (sessions == null || sessions.isEmpty())
+                return "INVALID_CODE";
 
-        if (sessions == null || sessions.isEmpty())
-            return "INVALID_CODE";
+            Map<String, Object> session = sessions.get(0);
 
-        Map session = (Map) sessions.get(0);
+            if (!"ACTIVE".equals(session.get("status")))
+                return "SESSION_NOT_ACTIVE";
 
-        if (!"ACTIVE".equals(session.get("status")))
-            return "SESSION_NOT_ACTIVE";
+            if (session.get("latitude") == null || session.get("longitude") == null)
+                return "SESSION_LOCATION_NOT_SET";
 
-        if (session.get("latitude") == null || session.get("longitude") == null)
-            return "SESSION_LOCATION_NOT_SET";
+            double tLat = ((Number) session.get("latitude")).doubleValue();
+            double tLon = ((Number) session.get("longitude")).doubleValue();
 
-        double tLat = ((Number) session.get("latitude")).doubleValue();
-        double tLon = ((Number) session.get("longitude")).doubleValue();
+            if (DistanceUtil.distanceMeters(
+                    tLat, tLon,
+                    req.getLatitude(), req.getLongitude()) > 50)
+                return "OUT_OF_RANGE";
 
-        if (DistanceUtil.distanceMeters(
-                tLat, tLon,
-                req.getLatitude(), req.getLongitude()) > 50)
-            return "OUT_OF_RANGE";
+            Map<String, Object> record = new HashMap<>();
+            record.put("session_id", session.get("id"));
+            record.put("usn", req.getUsn());
+            record.put("device_id", req.getDeviceId());
+            record.put("latitude", req.getLatitude());
+            record.put("longitude", req.getLongitude());
 
-        // 2. Check duplicate USN
-        String usnCheck = url + "/rest/v1/attendance_records"
-                + "?session_id=eq." + session.get("id")
-                + "&usn=eq." + req.getUsn();
+            rt.postForEntity(
+                    url + "/rest/v1/attendance_records",
+                    new HttpEntity<>(record, headers()),
+                    String.class
+            );
 
-        List usn = rt.exchange(usnCheck, HttpMethod.GET,
-                new HttpEntity<>(headers()), List.class).getBody();
+            return "SUCCESS";
 
-        if (usn != null && !usn.isEmpty())
-            return "ALREADY_MARKED";
-
-        // 3. Check device
-        String devCheck = url + "/rest/v1/attendance_records"
-                + "?session_id=eq." + session.get("id")
-                + "&device_id=eq." + req.getDeviceId();
-
-        List dev = rt.exchange(devCheck, HttpMethod.GET,
-                new HttpEntity<>(headers()), List.class).getBody();
-
-        if (dev != null && !dev.isEmpty())
-            return "DEVICE_MISMATCH";
-
-        // 4. Insert attendance
-        Map<String, Object> record = Map.of(
-                "session_id", session.get("id"),
-                "usn", req.getUsn(),
-                "device_id", req.getDeviceId(),
-                "latitude", req.getLatitude(),
-                "longitude", req.getLongitude()
-        );
-
-        rt.postForEntity(
-                url + "/rest/v1/attendance_records",
-                new HttpEntity<>(record, headers()),
-                String.class
-        );
-
-        return "SUCCESS";
+        } catch (Exception e) {
+            return "SERVER_ERROR";
+        }
     }
 }
