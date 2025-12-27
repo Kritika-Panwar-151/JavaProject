@@ -57,23 +57,37 @@ public class StudentService {
 
             if (distance > 50) return "OUT_OF_RANGE";
 
-            // 3. device mapping
-            String checkMap = url + "/rest/v1/student_devices?usn=eq." + req.getUsn();
-            List<Map<String, Object>> mapped = rt.exchange(checkMap, HttpMethod.GET,
-                    new HttpEntity<>(headers()), List.class).getBody();
+           // 3. device mapping check
+            String mapUrl = url + "/rest/v1/student_devices?usn=eq." + req.getUsn();
 
-            if (mapped == null || mapped.isEmpty()) {
-                // first time register
-                Map<String,Object> dev = new HashMap<>();
-                dev.put("usn", req.getUsn());
-                dev.put("device_id", req.getDeviceId());
+            List<Map<String,Object>> mapData = rt.exchange(
+                    mapUrl,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers()),
+                    List.class
+            ).getBody();
 
-                rt.postForEntity(url + "/rest/v1/student_devices",
-                        new HttpEntity<>(dev, headers()), String.class);
-            } else {
-                // verify same device
-                String saved = (String) mapped.get(0).get("device_id");
-                if (!saved.equals(req.getDeviceId())) return "DEVICE_NOT_MATCHED";
+            if(mapData == null || mapData.isEmpty()){                        // first time login
+                System.out.println("📌 Registering new device for " + req.getUsn());
+
+                HttpHeaders h = headers();
+                h.set("Prefer","return=representation");                     // REQUIRED FOR SUPABASE
+
+                Map<String,Object> insert = new HashMap<>();
+                insert.put("usn", req.getUsn());
+                insert.put("device_id", req.getDeviceId());
+
+                rt.postForEntity(
+                        url + "/rest/v1/student_devices",
+                        new HttpEntity<>(insert, h),
+                        String.class
+                );
+
+            }else{
+                String saved = (String) mapData.get(0).get("device_id");
+                if(!saved.equals(req.getDeviceId())){
+                    return "DEVICE_NOT_MATCHED";                             // block different laptop
+                }
             }
 
             // 4. Prevent duplicate
