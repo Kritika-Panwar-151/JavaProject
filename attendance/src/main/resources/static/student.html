@@ -109,7 +109,10 @@ function handleResponse(res){
         SERVER_ERROR: "Server error. Please try again.",
         ALREADY_MARKED:"Attendance already marked",
         DEVICE_MISMATCH:"This device is linked to another USN",
-        OUT_OF_RANGE:"You are not inside classroom"
+        OUT_OF_RANGE:"You are not inside classroom",
+        DEVICE_NOT_MATCHED: "This USN is registered to a different phone",
+        DEVICE_ALREADY_REGISTERED: "This phone is already linked to another student",
+        OUT_OF_RANGE: "You are not inside the classroom"
     };
 
     if(res.status==="SUCCESS"){

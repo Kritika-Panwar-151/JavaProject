@@ -63,47 +63,37 @@ public class StudentService {
                 return "OUT_OF_RANGE";
             }
 
-            // 3. Device Binding Logic (The student_devices table)
-            String mapUrl = url + "/rest/v1/student_devices?usn=eq." + req.getUsn();
+            // 3. Device Binding & Proxy Prevention
+            // Check A: Does this USN already have a phone assigned in the DB?
+            String usnCheckUrl = url + "/rest/v1/student_devices?usn=eq." + req.getUsn();
+            List<Map<String, Object>> usnMap = rt.exchange(usnCheckUrl, HttpMethod.GET, new HttpEntity<>(headers()), List.class).getBody();
 
-            List<Map<String, Object>> mapData = rt.exchange(
-                    mapUrl,
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers()),
-                    List.class
-            ).getBody();
+            if (usnMap != null && !usnMap.isEmpty()) {
+                // This USN exists in our records. Check if it's the SAME phone.
+                String savedId = (String) usnMap.get(0).get("device_id");
+                if (!savedId.equals(req.getDeviceId())) {
+                    System.out.println("Result: USN_SWITCHED_DEVICE");
+                    return "DEVICE_NOT_MATCHED"; // USN belongs to a different phone
+                }
+            } else {
+                // Check B: The USN is new, but is this PHONE already taken by another student?
+                String devCheckUrl = url + "/rest/v1/student_devices?device_id=eq." + req.getDeviceId();
+                List<Map<String, Object>> devMap = rt.exchange(devCheckUrl, HttpMethod.GET, new HttpEntity<>(headers()), List.class).getBody();
 
-            if (mapData == null || mapData.isEmpty()) {
-                // FIRST TIME: Register this device to this USN
-                System.out.println("Registering new device link...");
+                if (devMap != null && !devMap.isEmpty()) {
+                    System.out.println("Result: DEVICE_ALREADY_IN_USE");
+                    return "DEVICE_ALREADY_REGISTERED"; // Phone belongs to a different USN
+                }
 
-                HttpHeaders hh = headers();
-                hh.set("Prefer", "return=representation");
-
-                // Supabase POST requires a List (Array)
+                // New Registration: Both are free, link them.
+                System.out.println("Registering new link: " + req.getUsn() + " <-> " + req.getDeviceId());
                 List<Map<String, Object>> insertList = new ArrayList<>();
                 Map<String, Object> insertMap = new HashMap<>();
                 insertMap.put("usn", req.getUsn());
                 insertMap.put("device_id", req.getDeviceId());
                 insertList.add(insertMap);
 
-                try {
-                    rt.postForEntity(
-                            url + "/rest/v1/student_devices",
-                            new HttpEntity<>(insertList, hh),
-                            String.class
-                    );
-                } catch (Exception e) {
-                    System.err.println("Database Error: " + e.getMessage());
-                    return "DEVICE_SAVE_FAILED";
-                }
-            } else {
-                // NOT FIRST TIME: Verify the device ID matches the registered one
-                String savedDeviceId = (String) mapData.get(0).get("device_id");
-                if (!savedDeviceId.equals(req.getDeviceId())) {
-                    System.out.println("Result: DEVICE_MISMATCH");
-                    return "DEVICE_NOT_MATCHED";
-                }
+                rt.postForEntity(url + "/rest/v1/student_devices", new HttpEntity<>(insertList, headers()), String.class);
             }
 
             // 4. Prevent duplicate attendance for same USN in same Session
