@@ -62,10 +62,18 @@ button{
 
 <script>
 function getDeviceId(){
-    let id=localStorage.getItem("deviceId");
-    if(!id){id=crypto.randomUUID();localStorage.setItem("deviceId",id);}
+    let id = localStorage.getItem("device_id");
+
+    if(!id){
+        id = crypto.randomUUID();
+        localStorage.setItem("device_id", id);
+        console.log("🔰 New device ID created:",id);
+    } else {
+        console.log("✔ Using saved device ID:",id);
+    }
     return id;
 }
+
 
 function markAttendance(){
     const usn=document.getElementById("usn").value.trim();
