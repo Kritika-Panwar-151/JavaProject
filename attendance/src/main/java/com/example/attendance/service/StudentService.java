@@ -57,7 +57,7 @@ public class StudentService {
 
             if (distance > 50) return "OUT_OF_RANGE";
 
-           // 3. device mapping check
+           // 3. DEVICE → USN mapping
             String mapUrl = url + "/rest/v1/student_devices?usn=eq." + req.getUsn();
 
             List<Map<String,Object>> mapData = rt.exchange(
@@ -67,28 +67,46 @@ public class StudentService {
                     List.class
             ).getBody();
 
-            if(mapData == null || mapData.isEmpty()){                        // first time login
-                System.out.println("📌 Registering new device for " + req.getUsn());
+            System.out.println("📌 Checking device map for USN = " + req.getUsn());
 
-                HttpHeaders h = headers();
-                h.set("Prefer","return=representation");                     // REQUIRED FOR SUPABASE
+            if(mapData == null || mapData.isEmpty()){
+                System.out.println("⚠ No mapping exists — registering this device...");
+
+                HttpHeaders hh = new HttpHeaders();
+                hh.set("apikey", key);
+                hh.set("Authorization", "Bearer " + key);
+                hh.set("Prefer", "return=representation");      // 🔥 MUST HAVE
+                hh.setContentType(MediaType.APPLICATION_JSON);
 
                 Map<String,Object> insert = new HashMap<>();
                 insert.put("usn", req.getUsn());
                 insert.put("device_id", req.getDeviceId());
 
-                rt.postForEntity(
-                        url + "/rest/v1/student_devices",
-                        new HttpEntity<>(insert, h),
-                        String.class
-                );
+                try {
+                    ResponseEntity<String> res = rt.postForEntity(
+                            url + "/rest/v1/student_devices",
+                            new HttpEntity<>(insert, hh),
+                            String.class
+                    );
+                    System.out.println("✅ Device registered: " + res.getBody());
 
-            }else{
+                } catch (Exception e){
+                    System.out.println("❌ Error inserting device mapping:");
+                    e.printStackTrace();                         // 🔥 show errors instead of hiding
+                    return "DEVICE_SAVE_FAILED";
+                }
+
+            } else {
                 String saved = (String) mapData.get(0).get("device_id");
+                System.out.println("🔍 Saved Device = " + saved);
+                System.out.println("🔍 Current Device = " + req.getDeviceId());
+
                 if(!saved.equals(req.getDeviceId())){
-                    return "DEVICE_NOT_MATCHED";                             // block different laptop
+                    System.out.println("❌ Device mismatch — blocking");
+                    return "DEVICE_NOT_MATCHED";
                 }
             }
+
 
             // 4. Prevent duplicate
             String check = url + "/rest/v1/attendance_records?session_id=eq."
