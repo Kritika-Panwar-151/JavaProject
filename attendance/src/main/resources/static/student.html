@@ -89,7 +89,7 @@ function markAttendance(){
                 classCode:code,
                 latitude:pos.coords.latitude,
                 longitude:pos.coords.longitude,
-                device_id:getDeviceId()   // 🔥 IMPORTANT FIX
+                deviceId:getDeviceId()   // 🔥 IMPORTANT FIX
             })
         })
         .then(r=>r.json())

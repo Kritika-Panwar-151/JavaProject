@@ -31,7 +31,7 @@ public class StudentService {
     public String markAttendance(StudentAttendanceRequest req) {
 
         try {
-            // 1. fetch session
+            // 1. Fetch the session based on class code
             String q = url + "/rest/v1/attendance_sessions?class_code=eq." + req.getClassCode();
             List<Map<String, Object>> s = rt.exchange(q, HttpMethod.GET,
                     new HttpEntity<>(headers()), List.class).getBody();
@@ -42,97 +42,98 @@ public class StudentService {
 
             if (!"ACTIVE".equals(session.get("status"))) return "SESSION_NOT_ACTIVE";
 
+            // Ensure teacher has set a location
+            if (session.get("latitude") == null || session.get("longitude") == null) {
+                return "SESSION_LOCATION_NOT_SET";
+            }
+
             double tLat = ((Number) session.get("latitude")).doubleValue();
             double tLon = ((Number) session.get("longitude")).doubleValue();
 
-            // 2. distance check 50 meters
+            // 2. Distance check - Fixed at 50 meters
             double distance = DistanceUtil.distanceMeters(tLat, tLon,
                     req.getLatitude(), req.getLongitude());
 
-            System.out.println("\n===== LOCATION DEBUG =====");
-            System.out.println("Teacher : " + tLat + "," + tLon);
-            System.out.println("Student : " + req.getLatitude() + "," + req.getLongitude());
-            System.out.println("Distance: " + distance + "m");
-            System.out.println("==========================\n");
+            System.out.println("\n===== ATTENDANCE LOG =====");
+            System.out.println("Student USN : " + req.getUsn());
+            System.out.println("Calculated Distance: " + distance + "m");
 
-            if (distance > 50) return "OUT_OF_RANGE";
+            if (distance > 50) {
+                System.out.println("Result: OUT_OF_RANGE");
+                return "OUT_OF_RANGE";
+            }
 
-           // 3. DEVICE → USN mapping
+            // 3. Device Binding Logic (The student_devices table)
             String mapUrl = url + "/rest/v1/student_devices?usn=eq." + req.getUsn();
 
-            List<Map<String,Object>> mapData = rt.exchange(
+            List<Map<String, Object>> mapData = rt.exchange(
                     mapUrl,
                     HttpMethod.GET,
                     new HttpEntity<>(headers()),
                     List.class
             ).getBody();
 
-            System.out.println("📌 Checking device map for USN = " + req.getUsn());
+            if (mapData == null || mapData.isEmpty()) {
+                // FIRST TIME: Register this device to this USN
+                System.out.println("Registering new device link...");
 
-            if(mapData == null || mapData.isEmpty()){
-                System.out.println("⚠ No mapping exists — registering this device...");
+                HttpHeaders hh = headers();
+                hh.set("Prefer", "return=representation");
 
-                HttpHeaders hh = new HttpHeaders();
-                hh.set("apikey", key);
-                hh.set("Authorization", "Bearer " + key);
-                hh.set("Prefer", "return=representation");      // 🔥 MUST HAVE
-                hh.setContentType(MediaType.APPLICATION_JSON);
-
-                Map<String,Object> insert = new HashMap<>();
-                insert.put("usn", req.getUsn());
-                insert.put("device_id", req.getDeviceId());
+                // Supabase POST requires a List (Array)
+                List<Map<String, Object>> insertList = new ArrayList<>();
+                Map<String, Object> insertMap = new HashMap<>();
+                insertMap.put("usn", req.getUsn());
+                insertMap.put("device_id", req.getDeviceId());
+                insertList.add(insertMap);
 
                 try {
-                    ResponseEntity<String> res = rt.postForEntity(
+                    rt.postForEntity(
                             url + "/rest/v1/student_devices",
-                            new HttpEntity<>(insert, hh),
+                            new HttpEntity<>(insertList, hh),
                             String.class
                     );
-                    System.out.println("✅ Device registered: " + res.getBody());
-
-                } catch (Exception e){
-                    System.out.println("❌ Error inserting device mapping:");
-                    e.printStackTrace();                         // 🔥 show errors instead of hiding
+                } catch (Exception e) {
+                    System.err.println("Database Error: " + e.getMessage());
                     return "DEVICE_SAVE_FAILED";
                 }
-
             } else {
-                String saved = (String) mapData.get(0).get("device_id");
-                System.out.println("🔍 Saved Device = " + saved);
-                System.out.println("🔍 Current Device = " + req.getDeviceId());
-
-                if(!saved.equals(req.getDeviceId())){
-                    System.out.println("❌ Device mismatch — blocking");
+                // NOT FIRST TIME: Verify the device ID matches the registered one
+                String savedDeviceId = (String) mapData.get(0).get("device_id");
+                if (!savedDeviceId.equals(req.getDeviceId())) {
+                    System.out.println("Result: DEVICE_MISMATCH");
                     return "DEVICE_NOT_MATCHED";
                 }
             }
 
-
-            // 4. Prevent duplicate
-            String check = url + "/rest/v1/attendance_records?session_id=eq."
+            // 4. Prevent duplicate attendance for same USN in same Session
+            String checkUrl = url + "/rest/v1/attendance_records?session_id=eq."
                     + session.get("id") + "&usn=eq." + req.getUsn();
 
-            List<Map<String,Object>> exist = rt.exchange(check, HttpMethod.GET,
+            List<Map<String, Object>> exist = rt.exchange(checkUrl, HttpMethod.GET,
                     new HttpEntity<>(headers()), List.class).getBody();
 
             if (exist != null && !exist.isEmpty()) return "ALREADY_MARKED";
 
-            // 5. store attendance
-            Map<String,Object> r = new HashMap<>();
-            r.put("session_id", session.get("id"));
-            r.put("usn", req.getUsn());
-            r.put("device_id", req.getDeviceId());
-            r.put("latitude", req.getLatitude());
-            r.put("longitude", req.getLongitude());
-            r.put("status","PRESENT");
-            r.put("marked_at", new Date());
+            // 5. Save the attendance record
+            Map<String, Object> record = new HashMap<>();
+            record.put("session_id", session.get("id"));
+            record.put("usn", req.getUsn());
+            record.put("device_id", req.getDeviceId());
+            record.put("latitude", req.getLatitude());
+            record.put("longitude", req.getLongitude());
+            record.put("status", "PRESENT");
+            // Supabase handles the marked_at default value (now())
 
             rt.postForEntity(url + "/rest/v1/attendance_records",
-                    new HttpEntity<>(r, headers()), String.class);
+                    new HttpEntity<>(record, headers()), String.class);
+
+            System.out.println("Result: SUCCESS");
+            System.out.println("==========================\n");
 
             return "SUCCESS";
 
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return "SERVER_ERROR";
         }
