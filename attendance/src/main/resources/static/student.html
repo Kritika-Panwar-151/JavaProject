@@ -89,13 +89,14 @@ function markAttendance(){
                 classCode:code,
                 latitude:pos.coords.latitude,
                 longitude:pos.coords.longitude,
-                deviceId:getDeviceId()
+                device_id:getDeviceId()   // 🔥 IMPORTANT FIX
             })
         })
         .then(r=>r.json())
         .then(res=>handleResponse(res))
         .catch(()=>showError("Server error"));
     },()=>showError("Location permission denied"));
+
 }
 
 function handleResponse(res){
