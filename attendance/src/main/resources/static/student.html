@@ -1,3 +1,5 @@
+<!--
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -128,6 +130,117 @@ function showError(msg){
     const s=document.getElementById("status");
     s.style.color="#D32F2F";
     s.innerText=msg;
+}
+</script>
+</body>
+</html>
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Attendance</title>
+    <style>
+        *{box-sizing:border-box;font-family:"Segoe UI",Arial}
+        body{height:100vh;margin:0;background:linear-gradient(135deg,#FAFAFA,#FCE4EC);display:flex;justify-content:center;align-items:center}
+        .card{width:440px;background:#fff;padding:40px;border-radius:16px;box-shadow:0 15px 40px rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center}
+        h2{margin-bottom:6px}
+        p{margin-bottom:26px;color:#616161;font-size:14px}
+        .form{width:100%;max-width:360px}
+        label{font-size:13px;margin-bottom:6px;display:block}
+        input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #BDBDBD;margin-bottom:18px}
+        button{width:100%;padding:14px;border:none;border-radius:12px;background:#C2185B;color:#fff;font-size:15px;cursor:pointer}
+        .status{margin-top:14px;text-align:center;font-size:14px;color:#D32F2F}
+        .back{margin-top:18px;font-size:13px;color:#050431;text-decoration:none}
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>Student Attendance</h2>
+    <p>Enter details to mark attendance</p>
+    <div class="form">
+        <label>USN</label><input id="usn">
+        <label>Class Code</label><input id="code">
+        <button onclick="markAttendance()">Mark Attendance</button>
+        <div class="status" id="status"></div>
+    </div>
+    <a class="back" href="index.html">← Back to mode selection</a>
+</div>
+
+<script>
+function getDeviceId(){
+    let id = localStorage.getItem("device_id");
+    if(!id){
+        id = crypto.randomUUID();
+        localStorage.setItem("device_id", id);
+    }
+    return id;
+}
+
+function markAttendance(){
+    const usn = document.getElementById("usn").value.trim();
+    const code = document.getElementById("code").value.trim();
+    const statusDiv = document.getElementById("status");
+
+    if(!usn || !code){ showError("Please fill all fields"); return; }
+
+    statusDiv.style.color = "#C2185B";
+    statusDiv.innerText = "Locating...";
+
+    // ✅ Forces the laptop to use Wi-Fi/GPS more accurately
+    const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+    };
+
+    navigator.geolocation.getCurrentPosition(pos => {
+        fetch("/api/student/mark-attendance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                usn,
+                classCode: code,
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                deviceId: getDeviceId()
+            })
+        })
+        .then(r => r.json())
+        .then(res => handleResponse(res))
+        .catch(() => showError("Connection Error"));
+    }, (err) => {
+        showError("Location access denied. Enable GPS/Wi-Fi.");
+    }, geoOptions);
+}
+
+function handleResponse(res){
+    const map = {
+        INVALID_CODE: "Invalid class code",
+        SESSION_NOT_ACTIVE: "Attendance window not active",
+        SESSION_LOCATION_NOT_SET: "Teacher location not synced",
+        ALREADY_MARKED: "Attendance already marked",
+        DEVICE_NOT_MATCHED: "Your USN is linked to another device",
+        DEVICE_ALREADY_REGISTERED: "This device is linked to another student",
+        OUT_OF_RANGE: "You are not inside the classroom (50m limit)",
+        SERVER_ERROR: "Internal Server Error"
+    };
+
+    if(res.status === "SUCCESS"){
+        const s = document.getElementById("status");
+        s.style.color = "#2E7D32";
+        s.innerText = "Attendance marked successfully!";
+        setTimeout(() => window.location.href = "index.html", 2000);
+    } else {
+        showError(map[res.status] || "Error: " + res.status);
+    }
+}
+
+function showError(msg){
+    const s = document.getElementById("status");
+    s.style.color = "#D32F2F";
+    s.innerText = msg;
 }
 </script>
 </body>
